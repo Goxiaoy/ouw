@@ -71,11 +71,11 @@ func (u *unitOfWork) Rollback() error {
 func (u *unitOfWork) GetTxDb(ctx context.Context, key string) (tx interface{}, err error) {
 	u.mtx.Lock()
 	defer u.mtx.Unlock()
-	db := u.factory(ctx,key)
 	tx, ok := u.db[key]
 	if ok {
 		return tx, nil
 	}
+	db := u.factory(ctx,key)
 	tx, err = db.Begin(ctx, u.opt...)
 	if err != nil {
 		return nil, err
