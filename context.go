@@ -1,4 +1,4 @@
-package ouw
+package uow
 
 import "context"
 

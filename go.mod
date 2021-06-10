@@ -1,4 +1,4 @@
-module github.com/goxiaoy/ouw
+module github.com/goxiaoy/uow
 
 go 1.16
 

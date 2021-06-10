@@ -3,7 +3,7 @@ package gorm
 import (
 	"context"
 	"database/sql"
-	"github.com/goxiaoy/ouw"
+	"github.com/goxiaoy/uow"
 	"gorm.io/gorm"
 )
 
@@ -11,7 +11,7 @@ type TransactionDb struct {
 	db *gorm.DB
 }
 
-func NewTransactionDb(db *gorm.DB) ouw.TransactionalDb {
+func NewTransactionDb(db *gorm.DB) uow.TransactionalDb {
 	return &TransactionDb{
 		db: db,
 	}
