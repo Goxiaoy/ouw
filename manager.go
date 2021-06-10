@@ -3,61 +3,22 @@ package uow
 import (
 	"context"
 	"database/sql"
-	"errors"
-	"sync"
 )
 
-var (
-	ErrDuplicateKey  = errors.New("duplicate dbKey")
-	ErrDbKeyNotFound = errors.New("dbKey not found")
-)
 
 type Manager interface {
-	Register(key string, f DbFactory) (err error)
-	RegisterIfNot(key string, f DbFactory)
-	Resolve(ctx context.Context, key string) (db TransactionalDb, ok bool)
 	// WithNew create a new unit of work and execute [fn] with this unit of work
 	WithNew(ctx context.Context, fn func(ctx context.Context) error, opt ...*sql.TxOptions) error
 }
 
 type manager struct {
-	mtx sync.Mutex
-	db  map[string]DbFactory
+	factory DbFactory
 }
 
-func NewManager() Manager {
+func NewManager(factory DbFactory) Manager {
 	return &manager{
-		db: make(map[string]DbFactory),
+		factory: factory,
 	}
-}
-
-func (m *manager) Register(key string, f DbFactory) (err error) {
-	m.mtx.Lock()
-	defer m.mtx.Unlock()
-	_, ok := m.db[key]
-	if ok {
-		return ErrDuplicateKey
-	}
-	m.db[key] = f
-	return nil
-}
-
-func (m *manager) RegisterIfNot(key string, f DbFactory) {
-	m.mtx.Lock()
-	defer m.mtx.Unlock()
-	_, ok := m.db[key]
-	if !ok {
-		m.db[key] = f
-	}
-}
-
-func (m *manager) Resolve(ctx context.Context, key string) (db TransactionalDb, ok bool) {
-	f, ok := m.db[key]
-	if !ok {
-		return
-	}
-	db = f(ctx, key)
-	return
 }
 
 func (m *manager) WithNew(ctx context.Context, fn func(ctx context.Context) error, opt ...*sql.TxOptions) error {
@@ -67,5 +28,5 @@ func (m *manager) WithNew(ctx context.Context, fn func(ctx context.Context) erro
 }
 
 func (m *manager) createNewUintOfWork(opt ...*sql.TxOptions) UnitOfWork {
-	return NewUnitOfWork(m, opt...)
+	return NewUnitOfWork(m.factory,opt...)
 }

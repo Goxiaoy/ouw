@@ -22,16 +22,16 @@ type UnitOfWork interface {
 var _ UnitOfWork = (*unitOfWork)(nil)
 
 type unitOfWork struct {
-	m Manager
+	factory DbFactory
 	// db can be any client
 	db  map[string]interface{}
 	mtx sync.Mutex
 	opt []*sql.TxOptions
 }
 
-func NewUnitOfWork(m Manager, opt ...*sql.TxOptions) UnitOfWork {
+func NewUnitOfWork(factory DbFactory, opt ...*sql.TxOptions) UnitOfWork {
 	return &unitOfWork{
-		m:   m,
+		factory:   factory,
 		db:  make(map[string]interface{}),
 		opt: opt,
 	}
@@ -71,11 +71,8 @@ func (u *unitOfWork) Rollback() error {
 func (u *unitOfWork) GetTxDb(ctx context.Context, key string) (tx interface{}, err error) {
 	u.mtx.Lock()
 	defer u.mtx.Unlock()
-	db, ok := u.m.Resolve(ctx, key)
-	if !ok {
-		return nil, ErrDbKeyNotFound
-	}
-	tx, ok = u.db[key]
+	db := u.factory(ctx,key)
+	tx, ok := u.db[key]
 	if ok {
 		return tx, nil
 	}
