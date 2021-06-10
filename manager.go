@@ -5,7 +5,6 @@ import (
 	"database/sql"
 )
 
-
 type Manager interface {
 	// WithNew create a new unit of work and execute [fn] with this unit of work
 	WithNew(ctx context.Context, fn func(ctx context.Context) error, opt ...*sql.TxOptions) error
@@ -28,5 +27,5 @@ func (m *manager) WithNew(ctx context.Context, fn func(ctx context.Context) erro
 }
 
 func (m *manager) createNewUintOfWork(opt ...*sql.TxOptions) UnitOfWork {
-	return NewUnitOfWork(m.factory,opt...)
+	return NewUnitOfWork(m.factory, opt...)
 }

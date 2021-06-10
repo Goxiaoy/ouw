@@ -8,15 +8,24 @@ import (
 )
 
 type TransactionDb struct {
-	db *gorm.DB
+	*gorm.DB
 }
 
-func NewTransactionDb(db *gorm.DB) uow.TransactionalDb {
+func NewTransactionDb(db *gorm.DB) *TransactionDb {
 	return &TransactionDb{
-		db: db,
+		db,
 	}
 }
 
-func (t *TransactionDb) Begin(ctx context.Context, opt ...*sql.TxOptions) (db interface{}, err error) {
-	return t.db.Begin(opt...), nil
+func (t *TransactionDb) Commit() error {
+	return t.DB.Commit().Error
+}
+
+func (t *TransactionDb) Rollback() error {
+	return t.DB.Rollback().Error
+}
+
+func (t *TransactionDb) Begin(ctx context.Context, opt ...*sql.TxOptions) (db uow.Txn, err error) {
+	tx := t.DB.Begin(opt...)
+	return NewTransactionDb(tx), nil
 }

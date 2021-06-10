@@ -7,11 +7,10 @@ import (
 )
 
 type nonTransactionDb struct {
-
 }
 
 func (n *nonTransactionDb) Begin(ctx context.Context, opt ...*sql.TxOptions) (db interface{}, err error) {
-	return n,nil
+	return n, nil
 }
 
 func (n *nonTransactionDb) Commit() error {

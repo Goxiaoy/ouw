@@ -24,27 +24,24 @@ var _ UnitOfWork = (*unitOfWork)(nil)
 type unitOfWork struct {
 	factory DbFactory
 	// db can be any client
-	db  map[string]interface{}
+	db  map[string]Txn
 	mtx sync.Mutex
 	opt []*sql.TxOptions
 }
 
 func NewUnitOfWork(factory DbFactory, opt ...*sql.TxOptions) UnitOfWork {
 	return &unitOfWork{
-		factory:   factory,
-		db:  make(map[string]interface{}),
-		opt: opt,
+		factory: factory,
+		db:      make(map[string]Txn),
+		opt:     opt,
 	}
 }
 
 func (u *unitOfWork) Commit() error {
 	for _, db := range u.db {
-		tx, ok := db.(sql.Tx)
-		if ok {
-			err := tx.Commit()
-			if err != nil {
-				return err
-			}
+		err := db.Commit()
+		if err != nil {
+			return err
 		}
 	}
 	return nil
@@ -53,12 +50,9 @@ func (u *unitOfWork) Commit() error {
 func (u *unitOfWork) Rollback() error {
 	var errs []string
 	for _, db := range u.db {
-		tx, ok := db.(sql.Tx)
-		if ok {
-			err := tx.Rollback()
-			if err != nil {
-				errs = append(errs, err.Error())
-			}
+		err := db.Rollback()
+		if err != nil {
+			errs = append(errs, err.Error())
 		}
 	}
 	if len(errs) > 0 {
@@ -75,13 +69,13 @@ func (u *unitOfWork) GetTxDb(ctx context.Context, key string) (tx interface{}, e
 	if ok {
 		return tx, nil
 	}
-	db := u.factory(ctx,key)
-	tx, err = db.Begin(ctx, u.opt...)
+	db := u.factory(ctx, key)
+	txn, err := db.Begin(ctx, u.opt...)
 	if err != nil {
 		return nil, err
 	}
-	u.db[key] = tx
-	return
+	u.db[key] = txn
+	return txn, nil
 }
 
 // WithUnitOfWork wrap a function into current unit of work. Automatically rollback if function returns error
