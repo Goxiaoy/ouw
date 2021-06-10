@@ -3,15 +3,20 @@ package ouw
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
 )
 
+var (
+	ErrUnitOfWorkNotFound = errors.New("unit of work not found, please wrap with manager.WithNew")
+)
+
 type UnitOfWork interface {
 	Commit() error
 	Rollback() error
-	GetTxDb(ctx context.Context, key DbKey) (tx interface{}, err error)
+	GetTxDb(ctx context.Context, key string) (tx interface{}, err error)
 }
 
 var _ UnitOfWork = (*unitOfWork)(nil)
@@ -19,14 +24,16 @@ var _ UnitOfWork = (*unitOfWork)(nil)
 type unitOfWork struct {
 	m Manager
 	// db can be any client
-	db  map[DbKey]interface{}
+	db  map[string]interface{}
 	mtx sync.Mutex
+	opt []*sql.TxOptions
 }
 
-func NewUnitOfWork(m Manager) UnitOfWork {
+func NewUnitOfWork(m Manager, opt ...*sql.TxOptions) UnitOfWork {
 	return &unitOfWork{
-		m:  m,
-		db: make(map[DbKey]interface{}),
+		m:   m,
+		db:  make(map[string]interface{}),
+		opt: opt,
 	}
 }
 
@@ -61,7 +68,7 @@ func (u *unitOfWork) Rollback() error {
 	}
 }
 
-func (u *unitOfWork) GetTxDb(ctx context.Context, key DbKey) (tx interface{}, err error) {
+func (u *unitOfWork) GetTxDb(ctx context.Context, key string) (tx interface{}, err error) {
 	u.mtx.Lock()
 	defer u.mtx.Unlock()
 	db, ok := u.m.Resolve(ctx, key)
@@ -72,7 +79,7 @@ func (u *unitOfWork) GetTxDb(ctx context.Context, key DbKey) (tx interface{}, er
 	if ok {
 		return tx, nil
 	}
-	tx, err = db.Begin(ctx)
+	tx, err = db.Begin(ctx, u.opt...)
 	if err != nil {
 		return nil, err
 	}
@@ -80,8 +87,12 @@ func (u *unitOfWork) GetTxDb(ctx context.Context, key DbKey) (tx interface{}, er
 	return
 }
 
-// WithUnitOfWork wrap a function into a unit of work. Automatically rollback if function returns error
-func WithUnitOfWork(ctx context.Context, uow UnitOfWork, fn func(ctx context.Context) error) error {
+// WithUnitOfWork wrap a function into current unit of work. Automatically rollback if function returns error
+func withUnitOfWork(ctx context.Context, fn func(ctx context.Context) error) error {
+	uow, ok := FromCurrentUow(ctx)
+	if !ok {
+		return ErrUnitOfWorkNotFound
+	}
 	defer func() {
 		if v := recover(); v != nil {
 			uow.Rollback()

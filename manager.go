@@ -2,6 +2,7 @@ package ouw
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"sync"
 )
@@ -11,38 +12,26 @@ var (
 	ErrDbKeyNotFound = errors.New("dbKey not found")
 )
 
-// DbKey usually represents the connection string of this db
-type DbKey string
-
-type CancelFunc func(context.Context) context.Context
-
-type TransactionalDb interface {
-	// Begin a transaction
-	Begin(ctx context.Context) (db interface{}, err error)
-}
-
-type DbFactory func(ctx context.Context, key DbKey) TransactionalDb
-
 type Manager interface {
-	Register(key DbKey, f DbFactory) (err error)
-	RegisterIfNot(key DbKey, f DbFactory)
-	// Begin a unit of work
-	Begin(ctx context.Context) (context.Context, CancelFunc)
-	Resolve(ctx context.Context, key DbKey) (db TransactionalDb, ok bool)
+	Register(key string, f DbFactory) (err error)
+	RegisterIfNot(key string, f DbFactory)
+	Resolve(ctx context.Context, key string) (db TransactionalDb, ok bool)
+	// WithNew create a new unit of work and execute [fn] with this unit of work
+	WithNew(ctx context.Context, fn func(ctx context.Context) error, opt ...*sql.TxOptions) error
 }
 
 type manager struct {
 	mtx sync.Mutex
-	db  map[DbKey]DbFactory
+	db  map[string]DbFactory
 }
 
 func NewManager() Manager {
 	return &manager{
-		db: make(map[DbKey]DbFactory),
+		db: make(map[string]DbFactory),
 	}
 }
 
-func (m *manager) Register(key DbKey, f DbFactory) (err error) {
+func (m *manager) Register(key string, f DbFactory) (err error) {
 	m.mtx.Lock()
 	defer m.mtx.Unlock()
 	_, ok := m.db[key]
@@ -53,7 +42,7 @@ func (m *manager) Register(key DbKey, f DbFactory) (err error) {
 	return nil
 }
 
-func (m *manager) RegisterIfNot(key DbKey, f DbFactory) {
+func (m *manager) RegisterIfNot(key string, f DbFactory) {
 	m.mtx.Lock()
 	defer m.mtx.Unlock()
 	_, ok := m.db[key]
@@ -62,16 +51,7 @@ func (m *manager) RegisterIfNot(key DbKey, f DbFactory) {
 	}
 }
 
-func (m *manager) Begin(ctx context.Context) (context.Context, CancelFunc) {
-	current, _ := FromCurrentUow(ctx)
-	uow := m.createNewUintOfWork()
-	newCtx := NewCurrentUow(ctx, uow)
-	return newCtx, func(ctx context.Context) context.Context {
-		return NewCurrentUow(ctx, current)
-	}
-}
-
-func (m *manager) Resolve(ctx context.Context, key DbKey) (db TransactionalDb, ok bool) {
+func (m *manager) Resolve(ctx context.Context, key string) (db TransactionalDb, ok bool) {
 	f, ok := m.db[key]
 	if !ok {
 		return
@@ -80,6 +60,12 @@ func (m *manager) Resolve(ctx context.Context, key DbKey) (db TransactionalDb, o
 	return
 }
 
-func (m *manager) createNewUintOfWork() UnitOfWork {
-	return NewUnitOfWork(m)
+func (m *manager) WithNew(ctx context.Context, fn func(ctx context.Context) error, opt ...*sql.TxOptions) error {
+	uow := m.createNewUintOfWork(opt...)
+	newCtx := newCurrentUow(ctx, uow)
+	return withUnitOfWork(newCtx, fn)
+}
+
+func (m *manager) createNewUintOfWork(opt ...*sql.TxOptions) UnitOfWork {
+	return NewUnitOfWork(m, opt...)
 }
