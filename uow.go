@@ -16,7 +16,7 @@ var (
 type UnitOfWork interface {
 	Commit() error
 	Rollback() error
-	GetTxDb(ctx context.Context, key string) (tx interface{}, err error)
+	GetTxDb(ctx context.Context, key string) (tx Txn, err error)
 }
 
 var _ UnitOfWork = (*unitOfWork)(nil)
@@ -62,7 +62,7 @@ func (u *unitOfWork) Rollback() error {
 	}
 }
 
-func (u *unitOfWork) GetTxDb(ctx context.Context, key string) (tx interface{}, err error) {
+func (u *unitOfWork) GetTxDb(ctx context.Context, key string) (tx Txn, err error) {
 	u.mtx.Lock()
 	defer u.mtx.Unlock()
 	tx, ok := u.db[key]
@@ -70,12 +70,12 @@ func (u *unitOfWork) GetTxDb(ctx context.Context, key string) (tx interface{}, e
 		return tx, nil
 	}
 	db := u.factory(ctx, key)
-	txn, err := db.Begin(ctx, u.opt...)
+	tx, err = db.Begin(ctx, u.opt...)
 	if err != nil {
 		return nil, err
 	}
-	u.db[key] = txn
-	return txn, nil
+	u.db[key] = tx
+	return
 }
 
 // WithUnitOfWork wrap a function into current unit of work. Automatically rollback if function returns error
