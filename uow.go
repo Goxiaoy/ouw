@@ -13,15 +13,15 @@ var (
 	ErrUnitOfWorkNotFound = errors.New("unit of work not found, please wrap with manager.WithNew")
 )
 
-type UnitOfWork interface {
-	Commit() error
-	Rollback() error
-	GetTxDb(ctx context.Context, key string) (tx Txn, err error)
-}
+//type UnitOfWork interface {
+//	Commit() error
+//	Rollback() error
+//	GetTxDb(ctx context.Context, key string) (tx Txn, err error)
+//}
+//
+//var _ UnitOfWork = (*unitOfWork)(nil)
 
-var _ UnitOfWork = (*unitOfWork)(nil)
-
-type unitOfWork struct {
+type UnitOfWork struct {
 	factory DbFactory
 	// db can be any client
 	db  map[string]Txn
@@ -29,15 +29,15 @@ type unitOfWork struct {
 	opt []*sql.TxOptions
 }
 
-func NewUnitOfWork(factory DbFactory, opt ...*sql.TxOptions) UnitOfWork {
-	return &unitOfWork{
+func NewUnitOfWork(factory DbFactory, opt ...*sql.TxOptions) *UnitOfWork {
+	return &UnitOfWork{
 		factory: factory,
 		db:      make(map[string]Txn),
 		opt:     opt,
 	}
 }
 
-func (u *unitOfWork) Commit() error {
+func (u *UnitOfWork) Commit() error {
 	for _, db := range u.db {
 		err := db.Commit()
 		if err != nil {
@@ -47,7 +47,7 @@ func (u *unitOfWork) Commit() error {
 	return nil
 }
 
-func (u *unitOfWork) Rollback() error {
+func (u *UnitOfWork) Rollback() error {
 	var errs []string
 	for _, db := range u.db {
 		err := db.Rollback()
@@ -62,7 +62,7 @@ func (u *unitOfWork) Rollback() error {
 	}
 }
 
-func (u *unitOfWork) GetTxDb(ctx context.Context, key string) (tx Txn, err error) {
+func (u *UnitOfWork) GetTxDb(ctx context.Context, key string) (tx Txn, err error) {
 	u.mtx.Lock()
 	defer u.mtx.Unlock()
 	tx, ok := u.db[key]
