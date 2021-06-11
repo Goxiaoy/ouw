@@ -13,14 +13,6 @@ var (
 	ErrUnitOfWorkNotFound = errors.New("unit of work not found, please wrap with manager.WithNew")
 )
 
-//type UnitOfWork interface {
-//	Commit() error
-//	Rollback() error
-//	GetTxDb(ctx context.Context, key string) (tx Txn, err error)
-//}
-//
-//var _ UnitOfWork = (*unitOfWork)(nil)
-
 type UnitOfWork struct {
 	factory DbFactory
 	// db can be any client

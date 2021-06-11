@@ -27,5 +27,5 @@ func (t *TransactionDb) Rollback() error {
 
 func (t *TransactionDb) Begin(ctx context.Context, opt ...*sql.TxOptions) (db uow.Txn, err error) {
 	tx := t.DB.Begin(opt...)
-	return NewTransactionDb(tx), nil
+	return NewTransactionDb(tx), tx.Error
 }
