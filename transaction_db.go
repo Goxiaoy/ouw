@@ -15,4 +15,5 @@ type Txn interface {
 	Rollback() error
 }
 
-type DbFactory func(ctx context.Context, key string) TransactionalDb
+// DbFactory resolve transactional db by database kind (like redis,mysql,sqlite) and key (usually business name)
+type DbFactory func(ctx context.Context, kind, key string) TransactionalDb

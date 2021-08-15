@@ -54,14 +54,14 @@ func (u *UnitOfWork) Rollback() error {
 	}
 }
 
-func (u *UnitOfWork) GetTxDb(ctx context.Context, key string) (tx Txn, err error) {
+func (u *UnitOfWork) GetTxDb(ctx context.Context, kind, key string) (tx Txn, err error) {
 	u.mtx.Lock()
 	defer u.mtx.Unlock()
 	tx, ok := u.db[key]
 	if ok {
 		return tx, nil
 	}
-	db := u.factory(ctx, key)
+	db := u.factory(ctx, kind, key)
 	tx, err = db.Begin(ctx, u.opt...)
 	if err != nil {
 		return nil, err
