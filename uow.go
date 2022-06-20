@@ -54,7 +54,7 @@ func (u *UnitOfWork) Rollback() error {
 	}
 }
 
-func (u *UnitOfWork) GetTxDb(ctx context.Context, keys ...string) (tx Txn, err error) {
+func (u *UnitOfWork) GetTxDb(ctx context.Context, keys []string) (tx Txn, err error) {
 	u.mtx.Lock()
 	defer u.mtx.Unlock()
 	key := formatKey(keys)
