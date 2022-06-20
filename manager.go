@@ -33,16 +33,15 @@ func (m *manager) WithNew(ctx context.Context, fn func(ctx context.Context) erro
 	if m.cfg.SupportNestedTransaction {
 		current, ok := FromCurrentUow(ctx)
 		if ok {
-			factory = func(ctx context.Context, kind, key string) TransactionalDb {
-				//TODO lock?
-				tx, ok := current.db[key]
+			factory = func(ctx context.Context, keys []string) TransactionalDb {
+				tx, ok := current.db[formatKey(keys)]
 				if ok {
 					tdb, ok := tx.(TransactionalDb)
 					if ok {
 						return tdb
 					}
 				}
-				return m.factory(ctx, kind, key)
+				return m.factory(ctx, keys)
 			}
 		}
 	}

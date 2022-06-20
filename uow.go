@@ -54,14 +54,15 @@ func (u *UnitOfWork) Rollback() error {
 	}
 }
 
-func (u *UnitOfWork) GetTxDb(ctx context.Context, kind, key string) (tx Txn, err error) {
+func (u *UnitOfWork) GetTxDb(ctx context.Context, keys ...string) (tx Txn, err error) {
 	u.mtx.Lock()
 	defer u.mtx.Unlock()
+	key := formatKey(keys)
 	tx, ok := u.db[key]
 	if ok {
 		return tx, nil
 	}
-	db := u.factory(ctx, kind, key)
+	db := u.factory(ctx, keys)
 	tx, err = db.Begin(ctx, u.opt...)
 	if err != nil {
 		return nil, err
@@ -92,4 +93,8 @@ func withUnitOfWork(ctx context.Context, fn func(ctx context.Context) error) err
 		return fmt.Errorf("committing transaction: %w", err)
 	}
 	return nil
+}
+
+func formatKey(keys []string) string {
+	return strings.Join(keys, "/")
 }
