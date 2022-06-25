@@ -11,6 +11,7 @@ type TransactionDb struct {
 	*gorm.DB
 }
 
+// NewTransactionDb create a wrapper which implements uow.Txn
 func NewTransactionDb(db *gorm.DB) *TransactionDb {
 	return &TransactionDb{
 		db,

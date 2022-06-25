@@ -16,4 +16,4 @@ type Txn interface {
 }
 
 // DbFactory resolve transactional db by database keys
-type DbFactory func(ctx context.Context, keys []string) TransactionalDb
+type DbFactory func(ctx context.Context, keys ...string) TransactionalDb

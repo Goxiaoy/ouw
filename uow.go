@@ -15,17 +15,19 @@ var (
 
 type UnitOfWork struct {
 	factory DbFactory
-	// db can be any client
-	db  map[string]Txn
-	mtx sync.Mutex
-	opt []*sql.TxOptions
+	// db can be any kind of client
+	db        map[string]Txn
+	mtx       sync.Mutex
+	opt       []*sql.TxOptions
+	formatter KeyFormatter
 }
 
-func NewUnitOfWork(factory DbFactory, opt ...*sql.TxOptions) *UnitOfWork {
+func NewUnitOfWork(factory DbFactory, formatter KeyFormatter, opt ...*sql.TxOptions) *UnitOfWork {
 	return &UnitOfWork{
-		factory: factory,
-		db:      make(map[string]Txn),
-		opt:     opt,
+		factory:   factory,
+		formatter: formatter,
+		db:        make(map[string]Txn),
+		opt:       opt,
 	}
 }
 
@@ -54,15 +56,17 @@ func (u *UnitOfWork) Rollback() error {
 	}
 }
 
-func (u *UnitOfWork) GetTxDb(ctx context.Context, keys []string) (tx Txn, err error) {
+func (u *UnitOfWork) GetTxDb(ctx context.Context, keys ...string) (tx Txn, err error) {
 	u.mtx.Lock()
 	defer u.mtx.Unlock()
-	key := formatKey(keys)
+	key := u.formatter(keys...)
 	tx, ok := u.db[key]
 	if ok {
 		return tx, nil
 	}
-	db := u.factory(ctx, keys)
+	//create new db by using factory
+	db := u.factory(ctx, keys...)
+	//begin new transaction
 	tx, err = db.Begin(ctx, u.opt...)
 	if err != nil {
 		return nil, err
@@ -93,8 +97,4 @@ func withUnitOfWork(ctx context.Context, fn func(ctx context.Context) error) err
 		return fmt.Errorf("committing transaction: %w", err)
 	}
 	return nil
-}
-
-func formatKey(keys []string) string {
-	return strings.Join(keys, "/")
 }
