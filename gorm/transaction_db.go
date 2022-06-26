@@ -3,7 +3,7 @@ package gorm
 import (
 	"context"
 	"database/sql"
-	"github.com/goxiaoy/uow"
+	"github.com/go-saas/uow"
 	"gorm.io/gorm"
 )
 
