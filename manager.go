@@ -3,6 +3,7 @@ package uow
 import (
 	"context"
 	"database/sql"
+	"github.com/google/uuid"
 	"strings"
 )
 
@@ -19,6 +20,14 @@ var (
 	}
 )
 
+type IdGenerator func(ctx context.Context) string
+
+var (
+	DefaultIdGenerator IdGenerator = func(ctx context.Context) string {
+		return uuid.New().String()
+	}
+)
+
 type manager struct {
 	cfg     *Config
 	factory DbFactory
@@ -26,7 +35,8 @@ type manager struct {
 
 type Config struct {
 	NestedTransaction bool
-	Formatter         KeyFormatter
+	formatter         KeyFormatter
+	idGen             IdGenerator
 }
 
 type Option func(*Config)
@@ -36,16 +46,22 @@ func WithNestedNestedTransaction() Option {
 		config.NestedTransaction = true
 	}
 }
-
 func WithKeyFormatter(f KeyFormatter) Option {
 	return func(config *Config) {
-		config.Formatter = f
+		config.formatter = f
+	}
+}
+
+func WithIdGenerator(idGen IdGenerator) Option {
+	return func(config *Config) {
+		config.idGen = idGen
 	}
 }
 
 func NewManager(factory DbFactory, opts ...Option) Manager {
 	cfg := &Config{
-		Formatter: DefaultKeyFormatter,
+		formatter: DefaultKeyFormatter,
+		idGen:     DefaultIdGenerator,
 	}
 	for _, opt := range opts {
 		opt(cfg)
@@ -59,27 +75,18 @@ func NewManager(factory DbFactory, opts ...Option) Manager {
 func (m *manager) WithNew(ctx context.Context, fn func(ctx context.Context) error, opt ...*sql.TxOptions) error {
 	factory := m.factory
 	//get current for nested
+	var parent *unitOfWork
 	if m.cfg.NestedTransaction {
 		current, ok := FromCurrentUow(ctx)
 		if ok {
-			factory = func(ctx context.Context, keys ...string) TransactionalDb {
-				tx, ok := current.db[m.cfg.Formatter(keys...)]
-				if ok {
-					tdb, ok := tx.(TransactionalDb)
-					if ok {
-						return tdb
-					}
-				}
-				//fall back to parent factory
-				return m.factory(ctx, keys...)
-			}
+			parent = current
 		}
 	}
-	uow := m.createNewUintOfWork(factory, opt...)
+	if parent != nil {
+		//first level uow will use default factory, others will find from parent
+		factory = nil
+	}
+	uow := newUnitOfWork(m.cfg.idGen(ctx), parent, factory, m.cfg.formatter, opt...)
 	newCtx := newCurrentUow(ctx, uow)
 	return withUnitOfWork(newCtx, fn)
-}
-
-func (m *manager) createNewUintOfWork(factory DbFactory, opt ...*sql.TxOptions) *UnitOfWork {
-	return NewUnitOfWork(factory, m.cfg.Formatter, opt...)
 }
