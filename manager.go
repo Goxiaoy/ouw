@@ -34,16 +34,16 @@ type manager struct {
 }
 
 type Config struct {
-	NestedTransaction bool
-	formatter         KeyFormatter
-	idGen             IdGenerator
+	DisableNestedTransaction bool
+	formatter                KeyFormatter
+	idGen                    IdGenerator
 }
 
 type Option func(*Config)
 
-func WithNestedNestedTransaction() Option {
+func WithDisableNestedNestedTransaction() Option {
 	return func(config *Config) {
-		config.NestedTransaction = true
+		config.DisableNestedTransaction = true
 	}
 }
 func WithKeyFormatter(f KeyFormatter) Option {
@@ -76,17 +76,14 @@ func (m *manager) WithNew(ctx context.Context, fn func(ctx context.Context) erro
 	factory := m.factory
 	//get current for nested
 	var parent *unitOfWork
-	if m.cfg.NestedTransaction {
-		current, ok := FromCurrentUow(ctx)
-		if ok {
-			parent = current
-		}
+	if current, ok := FromCurrentUow(ctx); ok {
+		parent = current
 	}
 	if parent != nil {
 		//first level uow will use default factory, others will find from parent
 		factory = nil
 	}
-	uow := newUnitOfWork(m.cfg.idGen(ctx), parent, factory, m.cfg.formatter, opt...)
+	uow := newUnitOfWork(m.cfg.idGen(ctx), m.cfg.DisableNestedTransaction, parent, factory, m.cfg.formatter, opt...)
 	newCtx := newCurrentUow(ctx, uow)
 	return withUnitOfWork(newCtx, fn)
 }

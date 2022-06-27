@@ -14,9 +14,10 @@ var (
 )
 
 type unitOfWork struct {
-	id      string
-	parent  *unitOfWork
-	factory DbFactory
+	id            string
+	parent        *unitOfWork
+	factory       DbFactory
+	disableNested bool
 	// db can be any kind of client
 	db        map[string]Txn
 	mtx       sync.Mutex
@@ -24,14 +25,15 @@ type unitOfWork struct {
 	formatter KeyFormatter
 }
 
-func newUnitOfWork(id string, parent *unitOfWork, factory DbFactory, formatter KeyFormatter, opt ...*sql.TxOptions) *unitOfWork {
+func newUnitOfWork(id string, disableNested bool, parent *unitOfWork, factory DbFactory, formatter KeyFormatter, opt ...*sql.TxOptions) *unitOfWork {
 	return &unitOfWork{
-		id:        id,
-		parent:    parent,
-		factory:   factory,
-		formatter: formatter,
-		db:        make(map[string]Txn),
-		opt:       opt,
+		id:            id,
+		parent:        parent,
+		factory:       factory,
+		disableNested: disableNested,
+		formatter:     formatter,
+		db:            make(map[string]Txn),
+		opt:           opt,
 	}
 }
 
@@ -72,11 +74,11 @@ func (u *unitOfWork) GetTxDb(ctx context.Context, keys ...string) (tx Txn, err e
 		return tx, nil
 	}
 
-	//find from parent
-	if u.parent != nil {
+	//find from parent, no not begin new
+	if u.parent != nil && u.disableNested {
 		return u.parent.GetTxDb(ctx, keys...)
 	}
-	// no parent
+
 	// using factory
 	db, err := u.getFactory()(ctx, keys...)
 	if err != nil {

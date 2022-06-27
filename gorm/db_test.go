@@ -121,6 +121,27 @@ func TestRollback(t *testing.T) {
 	//assert.ErrorIs(t, err, gorm.ErrRecordNotFound)
 }
 
+func TestGormNested(t *testing.T) {
+	err := client.Transaction(func(client *gorm.DB) error {
+		err := client.Create(&post{gorm.Model{ID: 3002}}).Error
+		if err != nil {
+			return err
+		}
+		return client.Transaction(func(client *gorm.DB) error {
+			err := client.Create(&post{gorm.Model{ID: 3004}}).Error
+			if err != nil {
+				return err
+			}
+			return client.Transaction(func(client *gorm.DB) error {
+				return client.Create(&post{gorm.Model{ID: 4004}}).Error
+			})
+		})
+	})
+	if err != nil {
+		panic(err)
+	}
+}
+
 func TestNested(t *testing.T) {
 
 	mgr := uow.NewManager(func(ctx context.Context, keys ...string) (uow.TransactionalDb, error) {
@@ -141,6 +162,40 @@ func TestNested(t *testing.T) {
 			//level 3
 			err = mgr.WithNew(ctx, func(ctx context.Context) error {
 				err := clientResolver(ctx).Create(&post{gorm.Model{ID: 1004}}).Error
+				assert.NoError(t, err)
+				return err
+			})
+			assert.NoError(t, err)
+
+			return err
+		})
+		assert.NoError(t, err)
+
+		return err
+	})
+	assert.NoError(t, err)
+}
+
+func TestNestedDisable(t *testing.T) {
+
+	mgr := uow.NewManager(func(ctx context.Context, keys ...string) (uow.TransactionalDb, error) {
+		return NewTransactionDb(client), nil
+	}, uow.WithDisableNestedNestedTransaction())
+
+	//level 1
+	err := mgr.WithNew(context.Background(), func(ctx context.Context) error {
+
+		err := clientResolver(ctx).Create(&post{gorm.Model{ID: 4002}}).Error
+		assert.NoError(t, err)
+
+		//level 2
+		err = mgr.WithNew(ctx, func(ctx context.Context) error {
+			err := clientResolver(ctx).Create(&post{gorm.Model{ID: 4003}}).Error
+			assert.NoError(t, err)
+
+			//level 3
+			err = mgr.WithNew(ctx, func(ctx context.Context) error {
+				err := clientResolver(ctx).Create(&post{gorm.Model{ID: 4004}}).Error
 				assert.NoError(t, err)
 				return err
 			})
