@@ -133,7 +133,7 @@ func TestGormNested(t *testing.T) {
 				return err
 			}
 			return client.Transaction(func(client *gorm.DB) error {
-				return client.Create(&post{gorm.Model{ID: 4004}}).Error
+				return client.Create(&post{gorm.Model{ID: 3005}}).Error
 			})
 		})
 	})
