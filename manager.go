@@ -8,6 +8,7 @@ import (
 )
 
 type Manager interface {
+	CreateNew(ctx context.Context, opt ...*sql.TxOptions) (*UnitOfWork, error)
 	// WithNew create a new unit of work and execute [fn] with this unit of work
 	WithNew(ctx context.Context, fn func(ctx context.Context) error, opt ...*sql.TxOptions) error
 }
@@ -32,6 +33,8 @@ type manager struct {
 	cfg     *Config
 	factory DbFactory
 }
+
+var _ Manager = (*manager)(nil)
 
 type Config struct {
 	DisableNestedTransaction bool
@@ -72,10 +75,10 @@ func NewManager(factory DbFactory, opts ...Option) Manager {
 	}
 }
 
-func (m *manager) WithNew(ctx context.Context, fn func(ctx context.Context) error, opt ...*sql.TxOptions) error {
+func (m *manager) CreateNew(ctx context.Context, opt ...*sql.TxOptions) (*UnitOfWork, error) {
 	factory := m.factory
 	//get current for nested
-	var parent *unitOfWork
+	var parent *UnitOfWork
 	if current, ok := FromCurrentUow(ctx); ok {
 		parent = current
 	}
@@ -84,6 +87,13 @@ func (m *manager) WithNew(ctx context.Context, fn func(ctx context.Context) erro
 		factory = nil
 	}
 	uow := newUnitOfWork(m.cfg.idGen(ctx), m.cfg.DisableNestedTransaction, parent, factory, m.cfg.formatter, opt...)
-	newCtx := newCurrentUow(ctx, uow)
-	return withUnitOfWork(newCtx, fn)
+	return uow, nil
+}
+
+func (m *manager) WithNew(ctx context.Context, fn func(ctx context.Context) error, opt ...*sql.TxOptions) error {
+	uow, err := m.CreateNew(ctx, opt...)
+	if err != nil {
+		return err
+	}
+	return WithUnitOfWork(ctx, uow, fn)
 }

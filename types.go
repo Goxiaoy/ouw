@@ -7,7 +7,7 @@ import (
 
 type TransactionalDb interface {
 	// Begin a transaction
-	Begin(ctx context.Context, opt ...*sql.TxOptions) (db Txn, err error)
+	Begin(opt ...*sql.TxOptions) (db Txn, err error)
 }
 
 type Txn interface {

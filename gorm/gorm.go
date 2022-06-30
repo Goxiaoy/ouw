@@ -1,7 +1,6 @@
 package gorm
 
 import (
-	"context"
 	"database/sql"
 	"fmt"
 	"github.com/go-saas/uow"
@@ -36,7 +35,7 @@ func (t *TransactionDb) Rollback() error {
 	return t.DB.Rollback().Error
 }
 
-func (t *TransactionDb) Begin(ctx context.Context, opt ...*sql.TxOptions) (uow.Txn, error) {
+func (t *TransactionDb) Begin(opt ...*sql.TxOptions) (uow.Txn, error) {
 	var err error
 	db := t.DB
 	if committer, ok := db.Statement.ConnPool.(gorm.TxCommitter); ok && committer != nil {
