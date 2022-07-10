@@ -12,6 +12,7 @@ import (
 
 type BarrierDbFunc func(ctx context.Context, u *uow.UnitOfWork) *sql.Tx
 
+// CallUow dtm barrier with unit of work. see dtmcli.BranchBarrier.Call
 func CallUow(ctx context.Context, mgr uow.Manager, bb *dtmcli.BranchBarrier, barrierDbFunc BarrierDbFunc, fn func(ctx context.Context) error, opt ...*sql.TxOptions) (rerr error) {
 	u, err := mgr.CreateNew(ctx, opt...)
 	if err != nil {

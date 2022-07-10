@@ -14,6 +14,11 @@ type TransactionDb struct {
 	rollbackFunc func() error
 }
 
+var (
+	_ uow.TransactionalDb = (*TransactionDb)(nil)
+	_ uow.Txn             = (*TransactionDb)(nil)
+)
+
 // NewTransactionDb create a wrapper which implements uow.Txn
 func NewTransactionDb(db *gorm.DB) *TransactionDb {
 	return &TransactionDb{
