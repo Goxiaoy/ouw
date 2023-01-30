@@ -10,7 +10,7 @@ import (
 	"github.com/go-saas/uow"
 )
 
-type BarrierDbFunc func(ctx context.Context, u *uow.UnitOfWork) *sql.Tx
+type BarrierDbFunc func(ctx context.Context, u *uow.UnitOfWork) (*sql.Tx, error)
 
 // CallUow dtm barrier with unit of work. see dtmcli.BranchBarrier.Call
 func CallUow(ctx context.Context, mgr uow.Manager, bb *dtmcli.BranchBarrier, barrierDbFunc BarrierDbFunc, fn func(ctx context.Context) error, opt ...*sql.TxOptions) (rerr error) {
@@ -21,7 +21,10 @@ func CallUow(ctx context.Context, mgr uow.Manager, bb *dtmcli.BranchBarrier, bar
 	//push into context
 	ctx = uow.NewCurrentUow(ctx, u)
 	//already transactional ,barrier db is managed by uow now
-	barrierDb := barrierDbFunc(ctx, u)
+	barrierDb, err := barrierDbFunc(ctx, u)
+	if err != nil {
+		return err
+	}
 
 	//dtmcli.BranchBarrier.newBarrierID()
 	bb.BarrierID++
