@@ -4,9 +4,9 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"github.com/dtm-labs/dtm/dtmcli"
-	"github.com/dtm-labs/dtm/dtmcli/dtmimp"
-	"github.com/dtm-labs/dtm/dtmcli/logger"
+	"github.com/dtm-labs/dtm/client/dtmcli"
+	"github.com/dtm-labs/dtm/client/dtmcli/dtmimp"
+	"github.com/dtm-labs/logger"
 	"github.com/go-saas/uow"
 )
 
@@ -23,6 +23,7 @@ func CallUow(ctx context.Context, mgr uow.Manager, bb *dtmcli.BranchBarrier, bar
 	//already transactional ,barrier db is managed by uow now
 	barrierDb := barrierDbFunc(ctx, u)
 
+	//dtmcli.BranchBarrier.newBarrierID()
 	bb.BarrierID++
 	bid := fmt.Sprintf("%02d", bb.BarrierID)
 
@@ -31,9 +32,11 @@ func CallUow(ctx context.Context, mgr uow.Manager, bb *dtmcli.BranchBarrier, bar
 	}, func() error {
 		return u.Rollback()
 	})
+
 	originOp := map[string]string{
-		dtmimp.OpCancel:     dtmimp.OpTry,
-		dtmimp.OpCompensate: dtmimp.OpAction,
+		dtmimp.OpCancel:     dtmimp.OpTry,    // tcc
+		dtmimp.OpCompensate: dtmimp.OpAction, // saga
+		dtmimp.OpRollback:   dtmimp.OpAction, // workflow
 	}[bb.Op]
 
 	originAffected, oerr := dtmimp.InsertBarrier(barrierDb, bb.TransType, bb.Gid, bb.BranchID, originOp, bid, bb.Op, bb.DBType, bb.BarrierTableName)
@@ -48,7 +51,7 @@ func CallUow(ctx context.Context, mgr uow.Manager, bb *dtmcli.BranchBarrier, bar
 		rerr = oerr
 	}
 
-	if (bb.Op == dtmimp.OpCancel || bb.Op == dtmimp.OpCompensate) && originAffected > 0 || // null compensate
+	if (bb.Op == dtmimp.OpCancel || bb.Op == dtmimp.OpCompensate || bb.Op == dtmimp.OpRollback) && originAffected > 0 || // null compensate
 		currentAffected == 0 { // repeated request or dangled request
 		return
 	}
