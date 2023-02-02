@@ -8,7 +8,7 @@ import (
 )
 
 var (
-	safeMethods = []string{"GET", "HEAD", "OPTIONS", "TRACE"}
+	SafeMethods = []string{"GET", "HEAD", "OPTIONS", "TRACE"}
 )
 
 func contains(vals []string, s string) bool {
@@ -37,7 +37,7 @@ type option struct {
 
 type Option func(*option)
 
-// WithSkip change the skip unit of work function. default will skip safeMethods like "GET", "HEAD", "OPTIONS", "TRACE"
+// WithSkip change the skip unit of work function. default will skip SafeMethods like "GET", "HEAD", "OPTIONS", "TRACE"
 func WithSkip(f SkipFunc) Option {
 	return func(o *option) {
 		o.skip = f
@@ -61,7 +61,7 @@ func WithErrorEncoder(f EncodeErrorFunc) Option {
 func Uow(mgr uow.Manager, handler HandlerFunc, opts ...Option) http.Handler {
 	opt := &option{
 		skip: func(r *http.Request) bool {
-			return contains(safeMethods, r.Method)
+			return contains(SafeMethods, r.Method)
 		},
 		errEncoder: func(w http.ResponseWriter, r *http.Request, err error) {
 			//skip
